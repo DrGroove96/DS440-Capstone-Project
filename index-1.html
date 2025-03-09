@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather.io - Weather Analysis Dashboard</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet Geocoder -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Add Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Add this in the head section instead of Font Awesome -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 400px 300px;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 80px auto 20px;
+            padding: 0 20px;
+        }
+        .map-container {
+            grid-column: 1;
+            position: relative;
+        }
+        #map {
+            height: 700px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 1;
+        }
+        .dashboard {
+            grid-column: 2;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            width: 300px;
+        }
+        .current-weather {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+        .current-weather h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .current-weather p {
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        .is-accurate {
+            margin-top: 15px !important;
+            font-weight: bold;
+        }
+        .accuracy-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 5px;
+        }
+        .accuracy-button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .yes-button {
+            background: #4CAF50;
+            color: white;
+        }
+        .no-button {
+            background: #f44336;
+            color: white;
+        }
+        .chat-container {
+            grid-column: 3;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            height: 700px;
+        }
+        .chat-header {
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 8px 8px 0 0;
+        }
+        .chat-messages {
+            flex-grow: 1;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .chat-input {
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            border-top: 1px solid #eee;
+        }
+        .chat-input input {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .chat-input button {
+            padding: 8px 15px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1a73e8;
+        }
+        .search-box {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 400px;
+        }
+        .search-box-container {
+            position: relative;
+            width: 100%;
+        }
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+            z-index: 1001;
+        }
+        .search-result-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        .search-result-item:hover {
+            background: #f5f5f5;
+        }
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+        .weather-info {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 2;
+            max-width: 300px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .forecast-scroll {
+            display: flex;
+            overflow-x: auto;
+            gap: 10px;
+            padding: 10px 0;
+        }
+        .forecast-hour {
+            min-width: 80px;
+            text-align: center;
+        }
+        .forecast-day {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .forecast-day:last-child {
+            border-bottom: none;
+        }
+        .current-conditions, .air-quality, .sun-times, .hourly-forecast, .daily-forecast {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .location-button {
+            padding: 8px 16px;
+            background: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .location-button:hover {
+            background: #1557b0;
+        }
+        .winter-conditions {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f0f8ff;
+            border-radius: 8px;
+            border-left: 4px solid #1a73e8;
+        }
+        .warning {
+            color: #d32f2f;
+            font-weight: bold;
+        }
+        .custom-weather-icon {
+            background: none;
+            border: none;
+        }
+        .weather-marker {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 5px;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .weather-marker img {
+            width: 32px;
+            height: 32px;
+        }
+        .weather-marker span {
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: -5px;
+        }
+        .report-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        .report-form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .form-group textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        .submit-report,
+        .cancel-report {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .submit-report {
+            background: #1a73e8;
+            color: white;
+        }
+        .cancel-report {
+            background: #f1f3f4;
+            color: #3c4043;
+        }
+        .submit-report:hover {
+            background: #1557b0;
+        }
+        .cancel-report:hover {
+            background: #e8eaed;
+        }
+        .report-weather button {
+            width: 100%;
+            padding: 8px;
+            margin-top: 10px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .report-weather button:hover {
+            background: #45a049;
+        }
+        .historic-data h3 {
+            margin-top: 20px;
+            margin-bottom: 15px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .historic-data h4 {
+            margin: 10px 0;
+            font-size: 14px;
+            color: #666;
+        }
+        .chart-container {
+            margin-bottom: 20px;
+            height: 120px;
+            background: white;
+            border-radius: 4px;
+            padding: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .chart-section {
+            margin-bottom: 20px;
+        }
+        .chart-section h5 {
+            margin: 10px 0;
+            color: #333;
+            font-size: 14px;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        .error-message {
+            padding: 15px;
+            background: #ffebee;
+            border-radius: 8px;
+            color: #d32f2f;
+            margin: 10px 0;
+            display: none;
+        }
+        .character-preview {
+            width: 100%;
+            height: 200px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #character-model {
+            width: 150px;
+            height: 150px;
+            /* Add your character styling here */
+        }
+        .message.outfit-recommendation {
+            background: #e3f2fd;
+            border-left: 4px solid #1976d2;
+        }
+        .outfit-system {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .character-display {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 2rem;
+            width: 400px;
+            height: 600px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        .character-base {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            z-index: 1;
+        }
+        .clothing-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+        .body {
+            stroke: #333;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .outfit-selection {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            overflow-y: auto;
+            max-height: 700px;
+        }
+        .category-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .category-section h3 {
+            margin: 0 0 1rem 0;
+            color: #333;
+        }
+        .outfit-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 1rem;
+        }
+        .outfit-item {
+            border: 2px solid #eee;
+            border-radius: 8px;
+            padding: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        .outfit-item:hover {
+            border-color: #1a73e8;
+            transform: translateY(-2px);
+        }
+        .outfit-item.selected {
+            border-color: #1a73e8;
+            background: #e8f0fe;
+        }
+        .outfit-item img {
+            width: 100%;
+            height: auto;
+            margin-bottom: 0.5rem;
+        }
+        .outfit-item span {
+            display: block;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .outfit-item i {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+        .outfit-item.selected i {
+            color: #1a73e8;
+        }
+        .outfit-item:hover i {
+            transform: scale(1.1);
+            transition: transform 0.2s ease;
+        }
+        .material-icons {
+            font-size: 2.5rem !important; /* Override Material Icons default size */
+        }
+        @media (max-width: 768px) {
+            .outfit-system {
+                grid-template-columns: 1fr;
+            }
+        }
+        .feedback-dialog {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+            max-width: 400px;
+            width: 90%;
+        }
+        .feedback-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+        .feedback-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .feedback-buttons button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .feedback-yes {
+            background: #4CAF50;
+            color: white;
+        }
+        .feedback-no {
+            background: #f44336;
+            color: white;
+        }
+        .temperature-input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            display: none;
+        }
+        .submit-temp {
+            background: #1a73e8;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+            display: none;
+        }
+        .thank-you-message {
+            text-align: center;
+            color: #4CAF50;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Update header to include user info -->
+    <div class="header">
+        <div class="logo">Weather.io</div>
+        <div class="search-box">
+            <div class="search-box-container">
+                <input 
+                    type="text" 
+                    id="locationSearch" 
+                    placeholder="Search for a location..."
+                    autocomplete="off"
+                >
+                <div class="search-results" id="searchResults"></div>
+            </div>
+        </div>
+        <div class="user-info" id="userInfo">
+            <span id="userEmail"></span>
+            <button id="logoutButton">Logout</button>
+        </div>
+        <button id="loginPrompt" class="location-button">Login</button>
+    </div>
+
+    <div class="container">
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+        
+        <div class="dashboard">
+            <div class="error-message" id="errorMessage">
+                Unable to connect to weather service. Please try again later.
+            </div>
+            <div class="current-weather">
+                <div class="loading" id="loadingIndicator">
+                    Loading weather data...
+                </div>
+                <h3>Weather in <span id="location">Loading...</span></h3>
+                <p>Temperature: <span id="temp"></span></p>
+                <p>Feels Like: <span id="feels-like"></span></p>
+                <p>Low/High: <span id="low-high"></span></p>
+                <p>Pressure: <span id="pressure"></span></p>
+                <p>Wind: <span id="wind"></span></p>
+            </div>
+            
+            <div class="historic-data">
+                <h4>Historic Data:</h4>
+                
+                <div class="chart-section">
+                    <h5>Temperature:</h5>
+                    <div class="chart-container">
+                        <canvas id="temperatureChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-section">
+                    <h5>Rain:</h5>
+                    <div class="chart-container">
+                        <canvas id="rainChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-section">
+                    <h5>Snow:</h5>
+                    <div class="chart-container">
+                        <canvas id="snowChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="chat-container">
+            <div class="chat-header">
+                <h3>Weather Assistant</h3>
+            </div>
+            
+            <div class="chat-messages" id="chatMessages">
+                <div class="message system">
+                    Ask me anything about weather patterns!
+                </div>
+            </div>
+            <div class="chat-input">
+                <input type="text" id="userInput" placeholder="Type your question...">
+                <button id="sendButton">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add the feedback dialog -->
+    <div class="feedback-overlay" id="feedbackOverlay"></div>
+    <div class="feedback-dialog" id="feedbackDialog">
+        <h3 id="feedbackQuestion"></h3>
+        <div class="feedback-buttons">
+            <button class="feedback-yes">Yes</button>
+            <button class="feedback-no">No</button>
+        </div>
+        <input type="number" class="temperature-input" id="temperatureInput" placeholder="Enter temperature in °C">
+        <button class="submit-temp" id="submitTemp">Submit</button>
+        <p class="thank-you-message" id="thankYouMessage">Thank you for your feedback!</p>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    
+    <!-- Custom JS -->
+    <script>
+        // Declare map variable globally
+        let map;
+        let currentMarker = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('locationSearch');
+            const searchResults = document.getElementById('searchResults');
+            const OPENWEATHER_API_KEY = '438e5c5ba6a56eec4dfe8d2ffccaeeef';
+
+            // Initialize charts
+            const temperatureCtx = document.getElementById('temperatureChart').getContext('2d');
+            const rainCtx = document.getElementById('rainChart').getContext('2d');
+            const snowCtx = document.getElementById('snowChart').getContext('2d');
+
+            // Enhanced chart options with more precise data display
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            padding: 15,
+                            font: {
+                                size: 13,
+                                family: "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        titleColor: '#333',
+                        titleFont: {
+                            size: 14,
+                            weight: 'bold',
+                            family: "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
+                        },
+                        bodyColor: '#666',
+                        bodyFont: {
+                            size: 13,
+                            family: "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
+                        },
+                        padding: 15,
+                        borderColor: 'rgba(0, 0, 0, 0.1)',
+                        borderWidth: 1,
+                        displayColors: true,
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.parsed.y;
+                                const label = context.dataset.label;
+                                if (label === 'Temperature') {
+                                    return `${label}: ${value.toFixed(2)}°C`;
+                                }
+                                return `${label}: ${value.toFixed(3)} mm`;
+                            }
+                        }
+                    }
+                }
+            };
+
+            // Temperature specific options with enhanced precision
+            const temperatureOptions = {
+                ...commonOptions,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            stepSize: 0.5, // More precise temperature steps
+                            font: {
+                                size: 12,
+                                family: "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
+                            },
+                            padding: 8,
+                            callback: value => `${value.toFixed(1)}°C`
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            font: {
+                                size: 11,
+                                family: "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
+                            },
+                            padding: 8
+                        }
+                    }
+                }
+            };
+
+            // Add plugin for displaying "No data" message
+            const noDataPlugin = {
+                id: 'noDataPlugin',
+                afterDraw: (chart) => {
+                    const datasets = chart.data.datasets;
+                    let hasData = false;
+                    
+                    // Check if any dataset has non-zero values
+                    datasets.forEach(dataset => {
+                        if (dataset.data.some(value => value > 0)) {
+                            hasData = true;
+                        }
+                    });
+
+                    if (!hasData) {
+                        const { ctx, chartArea: { left, top, width, height } } = chart;
+                        const text = chart.canvas.id.includes('rain') ? 
+                            'No precipitation forecast' : 'No snowfall forecast';
+
+                        ctx.save();
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.font = '14px "Helvetica Neue", "Helvetica", "Arial", sans-serif';
+                        ctx.fillStyle = '#666';
+                        ctx.fillText(text, left + width / 2, top + height / 2);
+                        ctx.restore();
+                    }
+                }
+            };
+
+            // Update precipitation options to include the plugin
+            const precipitationOptions = {
+                ...commonOptions,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            stepSize: 0.1,
+                            font: {
+                                size: 12,
+                                family: "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
+                            },
+                            padding: 8,
+                            callback: value => `${value.toFixed(2)} mm`,
+                            suggestedMin: 0,
+                            suggestedMax: 0.5 // Start with a small range that will auto-adjust if needed
+                        },
+                        suggestedMin: 0,
+                        suggestedMax: 0.5 // Start with a small range that will auto-adjust if needed
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            font: {
+                                size: 11,
+                                family: "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
+                            },
+                            padding: 8
+                        }
+                    }
+                },
+                plugins: {
+                    ...commonOptions.plugins,
+                    noDataPlugin
+                }
+            };
+
+            // Initialize enhanced charts with more precise data points
+            const temperatureChart = new Chart(temperatureCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Temperature',
+                        data: [],
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        tension: 0.2, // Reduced tension for more precise curve
+                        fill: true,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        pointBackgroundColor: 'rgb(255, 99, 132)',
+                        borderWidth: 1.5
+                    }]
+                },
+                options: temperatureOptions
+            });
+
+            const rainChart = new Chart(rainCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Precipitation (mm/3h)',
+                        data: [],
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                        borderColor: 'rgb(54, 162, 235)',
+                        borderWidth: 1,
+                        borderRadius: 5,
+                        hoverBackgroundColor: 'rgba(54, 162, 235, 0.8)'
+                    }]
+                },
+                options: precipitationOptions,
+                plugins: [noDataPlugin]
+            });
+
+            const snowChart = new Chart(snowCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Snow (mm/3h)',
+                        data: [],
+                        backgroundColor: 'rgba(153, 102, 255, 0.6)',
+                        borderColor: 'rgb(153, 102, 255)',
+                        borderWidth: 1,
+                        borderRadius: 5,
+                        hoverBackgroundColor: 'rgba(153, 102, 255, 0.8)'
+                    }]
+                },
+                options: precipitationOptions,
+                plugins: [noDataPlugin]
+            });
+
+            // Enhanced data processing for more precise measurements
+            async function updateHistoricData(lat, lon) {
+                try {
+                    const response = await fetch(
+                        `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}&units=metric`
+                    );
+
+                    if (!response.ok) throw new Error('Failed to fetch forecast data');
+
+                    const data = await response.json();
+
+                    // Process data with enhanced precision
+                    const forecastData = data.list.map(item => {
+                        const date = new Date(item.dt * 1000);
+                        return {
+                            time: date,
+                            dayTime: date.toLocaleDateString('en-US', {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            }),
+                            temp: Number(item.main.temp.toFixed(2)),
+                            rain: item.rain ? Number((item.rain['3h'] || 0).toFixed(3)) : 0,
+                            snow: item.snow ? Number((item.snow['3h'] || 0).toFixed(3)) : 0
+                        };
+                    });
+
+                    // Update charts with more precise data
+                    const labels = forecastData.map(item => item.dayTime);
+
+                    // Temperature chart update with enhanced gradient
+                    const tempGradient = temperatureCtx.createLinearGradient(0, 0, 0, 400);
+                    tempGradient.addColorStop(0, 'rgba(255, 99, 132, 0.2)');
+                    tempGradient.addColorStop(1, 'rgba(255, 99, 132, 0.0)');
+                    
+                    temperatureChart.data.labels = labels;
+                    temperatureChart.data.datasets[0].backgroundColor = tempGradient;
+                    temperatureChart.data.datasets[0].data = forecastData.map(item => item.temp);
+                    temperatureChart.update();
+
+                    // Update precipitation charts with dynamic scaling
+                    const rainData = forecastData.map(item => item.rain);
+                    const maxRain = Math.max(...rainData);
+                    rainChart.options.scales.y.suggestedMax = maxRain > 0 ? maxRain * 1.2 : 0.5;
+                    rainChart.data.labels = labels;
+                    rainChart.data.datasets[0].data = rainData;
+                    rainChart.update();
+
+                    const snowData = forecastData.map(item => item.snow);
+                    const maxSnow = Math.max(...snowData);
+                    snowChart.options.scales.y.suggestedMax = maxSnow > 0 ? maxSnow * 1.2 : 0.5;
+                    snowChart.data.labels = labels;
+                    snowChart.data.datasets[0].data = snowData;
+                    snowChart.update();
+
+                } catch (error) {
+                    console.error('Error updating forecast data:', error);
+                }
+            }
+
+            // Initialize map with a lower zoom level
+            if (!map) {
+                map = L.map('map').setView([51.505, -0.09], 8);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+            }
+
+            // Function to update weather data
+            async function updateWeatherData(lat, lon) {
+                try {
+                    // Show loading indicator
+                    const loadingIndicator = document.getElementById('loadingIndicator');
+                    const errorMessage = document.getElementById('errorMessage');
+                    
+                    if (loadingIndicator) {
+                        loadingIndicator.style.display = 'block';
+                    }
+                    if (errorMessage) {
+                        errorMessage.style.display = 'none';
+                    }
+
+                    const response = await fetch(
+                        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}&units=metric`
+                    );
+                    
+                    if (!response.ok) {
+                        throw new Error('Weather service not responding');
+                    }
+
+                    const data = await response.json();
+                    
+                    // Update dashboard elements with null checks
+                    const elements = {
+                        location: document.getElementById('location'),
+                        temp: document.getElementById('temp'),
+                        feelsLike: document.getElementById('feels-like'),
+                        lowHigh: document.getElementById('low-high'),
+                        pressure: document.getElementById('pressure'),
+                        wind: document.getElementById('wind'),
+                        currentTemp: document.getElementById('currentTemp')
+                    };
+                    
+                    // Safely update elements if they exist
+                    if (elements.location) elements.location.textContent = data.name;
+                    if (elements.temp) elements.temp.textContent = `${Math.round(data.main.temp)}°C`;
+                    if (elements.feelsLike) elements.feelsLike.textContent = `${Math.round(data.main.feels_like)}°C`;
+                    if (elements.lowHigh) elements.lowHigh.textContent = 
+                        `${Math.round(data.main.temp_min)}°C / ${Math.round(data.main.temp_max)}°C`;
+                    if (elements.pressure) elements.pressure.textContent = `${data.main.pressure} hPa`;
+                    if (elements.wind) elements.wind.textContent = 
+                        `${data.wind.speed} m/s, ${data.wind.deg}°`;
+                    if (elements.currentTemp) elements.currentTemp.textContent = `${Math.round(data.main.temp)}°C`;
+                    
+                    // Hide loading indicator
+                    if (loadingIndicator) {
+                        loadingIndicator.style.display = 'none';
+                    }
+
+                    // Update historic data
+                    await updateHistoricData(lat, lon);
+
+                    // After updating the temperature display, show the feedback dialog
+                    const currentTemp = Math.round(data.main.temp);
+                    showFeedbackDialog(currentTemp);
+
+                } catch (error) {
+                    console.error('Error fetching weather data:', error);
+                    if (errorMessage) {
+                        errorMessage.style.display = 'block';
+                    }
+                    if (loadingIndicator) {
+                        loadingIndicator.style.display = 'none';
+                    }
+                }
+            }
+
+            // Function to update map marker
+            function updateMapMarker(lat, lon) {
+                if (currentMarker) {
+                    map.removeLayer(currentMarker);
+                }
+                // Create a draggable marker
+                currentMarker = L.marker([lat, lon], {
+                    draggable: true
+                }).addTo(map);
+
+                // Update weather when marker is dragged
+                currentMarker.on('dragend', function(event) {
+                    const marker = event.target;
+                    const position = marker.getLatLng();
+                    updateWeatherData(position.lat, position.lng);
+                    
+                    // Reverse geocode to get city name
+                    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.lat}&lon=${position.lng}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            // Extract city and state/country
+                            const addressParts = data.address;
+                            const city = addressParts.city || addressParts.town || addressParts.village || addressParts.hamlet;
+                            const state = addressParts.state || addressParts.country;
+                            const displayName = city ? `${city}, ${state}` : data.display_name.split(',')[0];
+                            searchInput.value = displayName;
+                        })
+                        .catch(error => console.error('Error reverse geocoding:', error));
+                });
+
+                map.setView([lat, lon], 8);
+            }
+
+            // Add click event to map
+            map.on('click', function(e) {
+                const lat = e.latlng.lat;
+                const lon = e.latlng.lng;
+                updateMapMarker(lat, lon);
+                updateWeatherData(lat, lon);
+
+                // Reverse geocode to get city name
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        // Extract city and state/country
+                        const addressParts = data.address;
+                        const city = addressParts.city || addressParts.town || addressParts.village || addressParts.hamlet;
+                        const state = addressParts.state || addressParts.country;
+                        const displayName = city ? `${city}, ${state}` : data.display_name.split(',')[0];
+                        searchInput.value = displayName;
+                    })
+                    .catch(error => console.error('Error reverse geocoding:', error));
+            });
+
+            // Handle search input
+            searchInput.addEventListener('input', debounce(async function(e) {
+                const query = e.target.value.trim();
+                
+                if (query.length < 3) {
+                    searchResults.style.display = 'none';
+                    return;
+                }
+
+                try {
+                    const response = await fetch(
+                        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`,
+                        {
+                            headers: {
+                                'User-Agent': 'Weather.io/1.0'
+                            }
+                        }
+                    );
+
+                    if (!response.ok) throw new Error('Search failed');
+                    
+                    const data = await response.json();
+                    searchResults.innerHTML = '';
+                    
+                    if (data.length > 0) {
+                        searchResults.style.display = 'block';
+                        
+                        data.forEach(result => {
+                            const div = document.createElement('div');
+                            div.className = 'search-result-item';
+                            // Simplify display name to city, state/country
+                            const nameParts = result.display_name.split(',');
+                            const city = nameParts[0];
+                            const state = nameParts[1] || nameParts[2];
+                            div.textContent = `${city.trim()}, ${state.trim()}`;
+                            
+                            div.addEventListener('click', () => {
+                                const lat = parseFloat(result.lat);
+                                const lon = parseFloat(result.lon);
+                                
+                                // Update map and weather
+                                updateMapMarker(lat, lon);
+                                updateWeatherData(lat, lon);
+                                
+                                // Update search UI
+                                searchInput.value = div.textContent;
+                                searchResults.style.display = 'none';
+                            });
+                            
+                            searchResults.appendChild(div);
+                        });
+                    } else {
+                        searchResults.innerHTML = '<div class="search-result-item">No results found</div>';
+                        searchResults.style.display = 'block';
+                    }
+                } catch (error) {
+                    console.error('Search error:', error);
+                    searchResults.innerHTML = '<div class="search-result-item">Error fetching results</div>';
+                    searchResults.style.display = 'block';
+                }
+            }, 300));
+
+            // Close search results when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                    searchResults.style.display = 'none';
+                }
+            });
+
+            // Handle keyboard navigation
+            searchInput.addEventListener('keydown', function(e) {
+                const items = searchResults.getElementsByClassName('search-result-item');
+                const activeItem = searchResults.querySelector('.search-result-item.active');
+                
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (!items.length) return;
+
+                    let nextItem;
+                    if (!activeItem) {
+                        nextItem = items[e.key === 'ArrowDown' ? 0 : items.length - 1];
+                    } else {
+                        const currentIndex = Array.from(items).indexOf(activeItem);
+                        const nextIndex = e.key === 'ArrowDown' 
+                            ? (currentIndex + 1) % items.length 
+                            : (currentIndex - 1 + items.length) % items.length;
+                        nextItem = items[nextIndex];
+                        activeItem.classList.remove('active');
+                    }
+                    nextItem.classList.add('active');
+                    nextItem.scrollIntoView({ block: 'nearest' });
+                } else if (e.key === 'Enter') {
+                    if (activeItem) {
+                        activeItem.click();
+                    }
+                }
+            });
+
+            function debounce(func, wait) {
+                let timeout;
+                return function executedFunction(...args) {
+                    const later = () => {
+                        clearTimeout(timeout);
+                        func(...args);
+                    };
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                };
+            }
+
+            // Function to show feedback dialog
+            function showFeedbackDialog(temperature) {
+                const dialog = document.getElementById('feedbackDialog');
+                const overlay = document.getElementById('feedbackOverlay');
+                const question = document.getElementById('feedbackQuestion');
+
+                question.textContent = `Is the temperature really ${temperature}°C?`;
+                dialog.style.display = 'block';
+                overlay.style.display = 'block';
+            }
+
+            // Initialize feedback functionality
+            const yesButton = document.querySelector('.feedback-yes');
+            const noButton = document.querySelector('.feedback-no');
+            const submitButton = document.getElementById('submitTemp');
+            const tempInput = document.getElementById('temperatureInput');
+            const thankYouMessage = document.getElementById('thankYouMessage');
+            const feedbackDialog = document.getElementById('feedbackDialog');
+            const feedbackOverlay = document.getElementById('feedbackOverlay');
+
+            yesButton.addEventListener('click', function() {
+                const buttons = document.querySelector('.feedback-buttons');
+                const currentTemp = parseFloat(document.getElementById('temp').textContent);
+                
+                buttons.style.display = 'none';
+                thankYouMessage.style.display = 'block';
+
+                // Store feedback locally instead of sending to server
+                const feedback = {
+                    isCorrect: true,
+                    actualTemp: currentTemp,
+                    location: currentMarker ? {
+                        lat: currentMarker.getLatLng().lat,
+                        lon: currentMarker.getLatLng().lng
+                    } : null,
+                    timestamp: new Date().toISOString()
+                };
+                
+                // Store in localStorage
+                const feedbacks = JSON.parse(localStorage.getItem('temperature-feedbacks') || '[]');
+                feedbacks.push(feedback);
+                localStorage.setItem('temperature-feedbacks', JSON.stringify(feedbacks));
+
+                setTimeout(() => {
+                    feedbackDialog.style.display = 'none';
+                    feedbackOverlay.style.display = 'none';
+                    buttons.style.display = 'flex';
+                    thankYouMessage.style.display = 'none';
+                }, 2000);
+            });
+
+            noButton.addEventListener('click', function() {
+                const buttons = document.querySelector('.feedback-buttons');
+                buttons.style.display = 'none';
+                tempInput.style.display = 'block';
+                submitButton.style.display = 'block';
+            });
+
+            submitButton.addEventListener('click', function() {
+                const currentTemp = parseFloat(document.getElementById('temp').textContent);
+                const reportedTemp = parseFloat(tempInput.value);
+
+                if (isNaN(reportedTemp)) {
+                    alert('Please enter a valid temperature');
+                    return;
+                }
+
+                // Store feedback locally instead of sending to server
+                const feedback = {
+                    isCorrect: false,
+                    reportedTemp: reportedTemp,
+                    actualTemp: currentTemp,
+                    location: currentMarker ? {
+                        lat: currentMarker.getLatLng().lat,
+                        lon: currentMarker.getLatLng().lng
+                    } : null,
+                    timestamp: new Date().toISOString()
+                };
+                
+                // Store in localStorage
+                const feedbacks = JSON.parse(localStorage.getItem('temperature-feedbacks') || '[]');
+                feedbacks.push(feedback);
+                localStorage.setItem('temperature-feedbacks', JSON.stringify(feedbacks));
+
+                tempInput.style.display = 'none';
+                submitButton.style.display = 'none';
+                thankYouMessage.style.display = 'block';
+
+                setTimeout(() => {
+                    feedbackDialog.style.display = 'none';
+                    feedbackOverlay.style.display = 'none';
+                    document.querySelector('.feedback-buttons').style.display = 'flex';
+                    thankYouMessage.style.display = 'none';
+                    tempInput.value = '';
+                }, 2000);
+            });
+
+            // Update the updateWeatherData function to show feedback dialog
+            const originalUpdateWeatherData = window.updateWeatherData;
+            window.updateWeatherData = async function(lat, lon) {
+                await originalUpdateWeatherData(lat, lon);
+                const currentTemp = Math.round(parseFloat(document.getElementById('temp').textContent));
+                showFeedbackDialog(currentTemp);
+            };
+        });
+    </script>
+
+    <!-- Remove or comment out the map.js script since we're handling map initialization here -->
+    <!-- <script src="js/map.js"></script> -->
+    <script src="js/assistant.js"></script>
+</body>
+</html> 
