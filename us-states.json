@@ -1,0 +1,14 @@
+{
+  "type": "Topology",
+  "objects": {
+    "states": {
+      "type": "GeometryCollection",
+      "geometries": [
+        // ... state geometries will be here
+      ]
+    }
+  },
+  "arcs": [
+    // ... coordinate data will be here
+  ]
+} 
