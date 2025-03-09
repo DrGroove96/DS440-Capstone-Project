@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather.io - Analytics</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .metric-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Analytics Dashboard</h1>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <h3>Total Listeners</h3>
+                <div id="totalListeners">0</div>
+            </div>
+            <div class="metric-card">
+                <h3>Peak Concurrent</h3>
+                <div id="peakListeners">0</div>
+            </div>
+            <div class="metric-card">
+                <h3>Avg. Listen Time</h3>
+                <div id="avgListenTime">0 min</div>
+            </div>
+            <div class="metric-card">
+                <h3>Return Rate</h3>
+                <div id="returnRate">0%</div>
+            </div>
+        </div>
+
+        <div class="chart-grid">
+            <div class="chart-container">
+                <canvas id="weatherChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="listenersByHourChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="listenersByDayChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="retentionChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let analytics;
+
+        async function loadAnalytics() {
+            try {
+                const response = await fetch('/api/analytics', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                analytics = await response.json();
+                updateDashboard();
+            } catch (error) {
+                console.error('Failed to load analytics:', error);
+            }
+        }
+
+        function updateDashboard() {
+            updateMetrics();
+            createWeatherChart();
+            createListenersByHourChart();
+            createListenersByDayChart();
+            createRetentionChart();
+        }
+
+        function updateMetrics() {
+            document.getElementById('totalListeners').textContent = 
+                analytics.engagement.listenersByHour.reduce((a, b) => a + b, 0);
+            document.getElementById('peakListeners').textContent = 
+                analytics.engagement.peakConcurrentListeners;
+            document.getElementById('avgListenTime').textContent = 
+                Math.round(analytics.engagement.averageListeningTime / 60) + ' min';
+            document.getElementById('returnRate').textContent = 
+                Math.round(analytics.retention.averageReturnRate * 100) + '%';
+        }
+
+        function createWeatherChart() {
+            const ctx = document.getElementById('weatherChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: analytics.weatherData.map(d => new Date(d.date).toLocaleDateString()),
+                    datasets: [{
+                        label: 'Temperature',
+                        data: analytics.weatherData.map(d => d.temperature),
+                        borderColor: 'rgb(255, 99, 132)',
+                        tension: 0.1
+                    }, {
+                        label: 'Listeners',
+                        data: analytics.weatherData.map(d => d.listeners),
+                        borderColor: 'rgb(54, 162, 235)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Weather vs Listeners'
+                        }
+                    }
+                }
+            });
+        }
+
+        function createListenersByHourChart() {
+            const ctx = document.getElementById('listenersByHourChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Array.from(analytics.engagement.listenersByHour.keys()),
+                    datasets: [{
+                        label: 'Listeners by Hour',
+                        data: Array.from(analytics.engagement.listenersByHour.values()),
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Listeners by Hour of Day'
+                        }
+                    }
+                }
+            });
+        }
+
+        function createListenersByDayChart() {
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const ctx = document.getElementById('listenersByDayChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: days,
+                    datasets: [{
+                        label: 'Listeners by Day',
+                        data: Array.from(analytics.engagement.listenersByDay.values()),
+                        backgroundColor: 'rgba(75, 192, 192, 0.5)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Listeners by Day of Week'
+                        }
+                    }
+                }
+            });
+        }
+
+        function createRetentionChart() {
+            const ctx = document.getElementById('retentionChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Returning', 'New'],
+                    datasets: [{
+                        data: [
+                            analytics.retention.returningListeners,
+                            analytics.retention.totalListeners - analytics.retention.returningListeners
+                        ],
+                        backgroundColor: [
+                            'rgba(75, 192, 192, 0.5)',
+                            'rgba(255, 99, 132, 0.5)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Listener Retention'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Load analytics on page load
+        document.addEventListener('DOMContentLoaded', loadAnalytics);
+    </script>
+</body>
+</html> 
