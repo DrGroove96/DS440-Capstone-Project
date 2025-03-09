@@ -1,0 +1,25 @@
+.weather-marker {
+    background: none;
+    border: none;
+}
+
+.weather-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 5px;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.weather-icon img {
+    width: 32px;
+    height: 32px;
+}
+
+.weather-icon span {
+    font-size: 12px;
+    font-weight: bold;
+    margin-top: -5px;
+} 
