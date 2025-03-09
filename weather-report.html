@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Submit Weather Report</title>
+</head>
+<body>
+    <h1>Submit Weather Report</h1>
+    <form id="weatherForm">
+        <div>
+            <label for="temperature">Temperature (°C):</label>
+            <input type="number" id="temperature" required>
+        </div>
+        <div>
+            <label for="humidity">Humidity (%):</label>
+            <input type="number" id="humidity" required>
+        </div>
+        <div>
+            <label for="windSpeed">Wind Speed (km/h):</label>
+            <input type="number" id="windSpeed" required>
+        </div>
+        <div>
+            <label for="precipitation">Precipitation:</label>
+            <select id="precipitation">
+                <option value="none">None</option>
+                <option value="rain">Rain</option>
+                <option value="snow">Snow</option>
+                <option value="sleet">Sleet</option>
+            </select>
+        </div>
+        <div>
+            <label for="description">Description:</label>
+            <textarea id="description" required></textarea>
+        </div>
+        <div>
+            <label for="media">Photos/Videos:</label>
+            <input type="file" id="media" multiple accept="image/*,video/*">
+        </div>
+        <button type="submit">Submit Report</button>
+    </form>
+
+    <script>
+        document.getElementById('weatherForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Get current location
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const formData = new FormData();
+                
+                // Add form fields
+                formData.append('latitude', position.coords.latitude);
+                formData.append('longitude', position.coords.longitude);
+                formData.append('temperature', document.getElementById('temperature').value);
+                formData.append('humidity', document.getElementById('humidity').value);
+                formData.append('windSpeed', document.getElementById('windSpeed').value);
+                formData.append('precipitation', document.getElementById('precipitation').value);
+                formData.append('description', document.getElementById('description').value);
+                
+                // Add media files
+                const mediaFiles = document.getElementById('media').files;
+                for (let file of mediaFiles) {
+                    formData.append('media', file);
+                }
+
+                try {
+                    const response = await fetch('/api/reports/submit', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        alert('Weather report submitted successfully!');
+                        e.target.reset();
+                    } else {
+                        throw new Error('Failed to submit report');
+                    }
+                } catch (error) {
+                    alert('Error submitting report: ' + error.message);
+                }
+            });
+        });
+    </script>
+</body>
+</html> 
