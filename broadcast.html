@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Podcast Broadcasting</title>
+    <style>
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .chat-box { height: 300px; overflow-y: scroll; border: 1px solid #ccc; }
+        .controls { margin: 20px 0; }
+        .status { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Weather Podcast Broadcasting</h1>
+        
+        <div id="setup-form">
+            <h2>Start New Broadcast</h2>
+            <div>
+                <label for="title">Title:</label>
+                <input type="text" id="title" required>
+            </div>
+            <div>
+                <label for="description">Description:</label>
+                <textarea id="description" required></textarea>
+            </div>
+            <div>
+                <label for="tags">Tags (comma-separated):</label>
+                <input type="text" id="tags">
+            </div>
+            <button onclick="startBroadcast()">Start Broadcasting</button>
+        </div>
+
+        <div id="broadcast-controls" style="display: none;">
+            <div class="status">🔴 LIVE</div>
+            <div class="controls">
+                <button onclick="toggleMute()">Mute/Unmute</button>
+                <button onclick="endBroadcast()">End Broadcast</button>
+            </div>
+            
+            <div class="chat-container">
+                <div class="chat-box" id="chat-messages"></div>
+                <div class="chat-input">
+                    <input type="text" id="chat-input" placeholder="Type a message...">
+                    <button onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws;
+        let stream;
+        let streamId;
+
+        async function startBroadcast() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: false
+                });
+
+                ws = new WebSocket('ws://' + window.location.host);
+                
+                ws.onopen = () => {
+                    // Get location and start broadcast
+                    navigator.geolocation.getCurrentPosition(position => {
+                        ws.send(JSON.stringify({
+                            type: 'start-broadcast',
+                            title: document.getElementById('title').value,
+                            description: document.getElementById('description').value,
+                            tags: document.getElementById('tags').value.split(','),
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude
+                        }));
+                    });
+                };
+
+                ws.onmessage = handleWebSocketMessage;
+
+                document.getElementById('setup-form').style.display = 'none';
+                document.getElementById('broadcast-controls').style.display = 'block';
+            } catch (error) {
+                alert('Error starting broadcast: ' + error.message);
+            }
+        }
+
+        function handleWebSocketMessage(event) {
+            const data = JSON.parse(event.data);
+            
+            switch (data.type) {
+                case 'broadcast-started':
+                    streamId = data.streamId;
+                    break;
+                case 'chat-message':
+                    appendChatMessage(data);
+                    break;
+                case 'error':
+                    alert('Error: ' + data.message);
+                    break;
+            }
+        }
+
+        function appendChatMessage(data) {
+            const chatBox = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.textContent = `${data.userId}: ${data.message}`;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            
+            if (message && ws) {
+                ws.send(JSON.stringify({
+                    type: 'chat-message',
+                    streamId: streamId,
+                    message: message
+                }));
+                input.value = '';
+            }
+        }
+
+        function endBroadcast() {
+            if (ws && streamId) {
+                ws.send(JSON.stringify({
+                    type: 'end-broadcast',
+                    streamId: streamId
+                }));
+                window.location.reload();
+            }
+        }
+
+        // Handle enter key in chat
+        document.getElementById('chat-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+    </script>
+</body>
+</html> 
