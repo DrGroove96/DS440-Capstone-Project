@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Podcast Archive</title>
+    <style>
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .search-filters { margin-bottom: 20px; }
+        .archive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .archive-card {
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .player-container { margin-top: 20px; }
+        .highlights { margin-top: 10px; }
+        .highlight-item { cursor: pointer; color: blue; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Weather Podcast Archive</h1>
+        
+        <div class="search-filters">
+            <input type="text" id="keyword" placeholder="Search keywords...">
+            <input type="text" id="location" placeholder="Location">
+            <input type="text" id="tags" placeholder="Tags (comma-separated)">
+            <input type="date" id="dateStart">
+            <input type="date" id="dateEnd">
+            <button onclick="searchArchives()">Search</button>
+        </div>
+
+        <div class="archive-grid" id="archiveResults">
+            <!-- Archive results will be populated here -->
+        </div>
+    </div>
+
+    <script>
+        async function searchArchives() {
+            const keyword = document.getElementById('keyword').value;
+            const location = document.getElementById('location').value;
+            const tags = document.getElementById('tags').value.split(',').map(t => t.trim());
+            const dateStart = document.getElementById('dateStart').value;
+            const dateEnd = document.getElementById('dateEnd').value;
+
+            try {
+                const response = await fetch('/api/archives/search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        keyword,
+                        location,
+                        tags,
+                        dateRange: {
+                            start: dateStart,
+                            end: dateEnd
+                        }
+                    })
+                });
+
+                const archives = await response.json();
+                displayResults(archives);
+            } catch (error) {
+                console.error('Search failed:', error);
+                alert('Search failed. Please try again.');
+            }
+        }
+
+        function displayResults(archives) {
+            const container = document.getElementById('archiveResults');
+            container.innerHTML = '';
+
+            archives.forEach(archive => {
+                const card = document.createElement('div');
+                card.className = 'archive-card';
+                card.innerHTML = `
+                    <h3>${archive.title}</h3>
+                    <p>${archive.description}</p>
+                    <p>Recorded: ${new Date(archive.recordedDate).toLocaleDateString()}</p>
+                    <p>Duration: ${formatDuration(archive.duration)}</p>
+                    <div class="player-container">
+                        <audio controls src="${archive.recordingUrl}"></audio>
+                    </div>
+                    <div class="highlights">
+                        <h4>Highlights:</h4>
+                        ${archive.highlights.map(h => `
+                            <div class="highlight-item" onclick="seekToHighlight(this, ${h.timestamp})">
+                                ${h.description}
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="tags">
+                        ${archive.tags.map(tag => `<span class="tag">${tag}</span>`).join(' ')}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function formatDuration(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+
+        function seekToHighlight(element, timestamp) {
+            const audio = element.closest('.archive-card').querySelector('audio');
+            audio.currentTime = timestamp;
+            audio.play();
+        }
+
+        // Initial search on page load
+        searchArchives();
+    </script>
+</body>
+</html> 
